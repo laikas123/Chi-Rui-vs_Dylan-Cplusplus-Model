@@ -18,25 +18,20 @@
 //
 #include <fstream>
 #include <iostream>
-#include <algorithm>
-#include <vector>
-#include <map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-
 #include "firmware/myproject.h"
-#include "firmware/nnet_utils/nnet_helpers.h"
+//#include "firmware/weights/w27.h"
+//#include "firmware/weights/w31.h"
+//#include "firmware/weights/w36.h"
+//#include "firmware/weights/w40.h"
+//#include "firmware/weights/w44.h"
+//#include "firmware/weights/w48.h"
+#include "firmware/parameters.h"
 
-//hls-fpga-machine-learning insert bram
 
 #define CHECKPOINT 5000
-
-namespace nnet {
-    bool trace_enabled = true;
-    std::map<std::string, void *> *trace_outputs = NULL;
-    size_t trace_type_size = sizeof(double);
-}
 
 int main(int argc, char **argv)
 {
@@ -56,73 +51,51 @@ int main(int argc, char **argv)
   std::string pline;
   int e = 0;
 
-  if (fin.is_open() && fpr.is_open()) {
-    while ( std::getline(fin,iline) && std::getline (fpr,pline) ) {
-      if (e % CHECKPOINT == 0) std::cout << "Processing input " << e << std::endl;
-      char* cstr=const_cast<char*>(iline.c_str());
-      char* current;
-      std::vector<float> in;
-      current=strtok(cstr," ");
-      while(current!=NULL) {
-        in.push_back(atof(current));
-        current=strtok(NULL," ");
-      }
-      cstr=const_cast<char*>(pline.c_str());
-      std::vector<float> pr;
-      current=strtok(cstr," ");
-      while(current!=NULL) {
-        pr.push_back(atof(current));
-        current=strtok(NULL," ");
-      }
-
-      //hls-fpga-machine-learning insert data
-      hls::stream<input_t> em_barrel("em_barrel");
-      nnet::copy_data<float, input_t, 0, N_INPUT_1_1*N_INPUT_2_1*N_INPUT_3_1>(in, em_barrel);
-      hls::stream<result_t> layer55_out("layer55_out");
-
-      //hls-fpga-machine-learning insert top-level-function
-      unsigned short size_in1,size_out1;
-      myproject(em_barrel,layer55_out,size_in1,size_out1);
-
-      if (e % CHECKPOINT == 0) {
-        std::cout << "Predictions" << std::endl;
-        //hls-fpga-machine-learning insert predictions
-        for(int i = 0; i < N_LAYER_53; i++) {
-          std::cout << pr[i] << " ";
+  std::cout << "INFO: Unable to open input/predictions file, using default input." << std::endl;
+  //hls-fpga-machine-learning insert zero
+  
+  model_weightdefault_t w27[73728];
+  model_weightdefault_t w31[147456];
+  model_weightdefault_t w36[294912];
+  model_weightdefault_t w40[589824];
+  model_weightdefault_t w44[589824];
+  model_weightdefault_t w48[65536];
+  hls::stream<input_t> em_barrel[N_INPUT_3_1];
+  for(int iX = 0; iX < 5; iX++) { 
+    input_t pTest = 0;
+    for(int i0 = 0; i0 < (11)*(56); i0++) {
+	for(int i2 = 0; i2 < N_INPUT_3_1; i2++) {
+	  if(i2 == 0) em_barrel[i2].write(pTest);
+	  if(i2 >  0 && i0 < 1)  em_barrel[i2].write(iX+1);
+	  if(i2 >  0 && i0 > 0)  em_barrel[i2].write(iX+32);
+	  if(pTest == 0) pTest = 1;
         }
-        std::cout << std::endl;
-        std::cout << "Quantized predictions" << std::endl;
-        //hls-fpga-machine-learning insert quantized
-        nnet::print_result<result_t, N_LAYER_53>(layer55_out, std::cout, true);
-      }
-      e++;
-
-      //hls-fpga-machine-learning insert tb-output
-      nnet::print_result<result_t, N_LAYER_53>(layer55_out, fout);
-
     }
-    fin.close();
-    fpr.close();
-  } else {
-    std::cout << "INFO: Unable to open input/predictions file, using default input." << std::endl;
-
-    //hls-fpga-machine-learning insert zero
-    hls::stream<input_t> em_barrel("em_barrel");
-    nnet::fill_zero<input_t, N_INPUT_1_1*N_INPUT_2_1*N_INPUT_3_1>(em_barrel);
-    hls::stream<result_t> layer55_out("layer55_out");
-
-    //hls-fpga-machine-learning insert top-level-function
-    unsigned short size_in1,size_out1;
-    myproject(em_barrel,layer55_out,size_in1,size_out1);
-
-    //hls-fpga-machine-learning insert output
-    nnet::print_result<result_t, N_LAYER_53>(layer55_out, std::cout, true);
-
-    //hls-fpga-machine-learning insert tb-output
-    nnet::print_result<result_t, N_LAYER_53>(layer55_out, fout);
-
   }
+  hls::stream<result_t> layer54_out[N_LAYER_52];
+  myproject(em_barrel,layer54_out,w27, w31, w36, w40, w44, w48);
+  for(int iX = 0; iX < 5; iX++) { 
+    for(int i1 = 0; i1 < 1; i1++) {
+      for(int i0 = 0; i0 < N_LAYER_52; i0++) {
+	fout << layer54_out[i0].read() << " ";
+      }
+      fout << std::endl;
+    }
+    std::cout << "input1 ";
+    for(int i0 = 0; i0 < 5; i0++) { 
+      std::cout << " " <<  em_barrel[i0].empty();
+      if(!em_barrel[i0].empty()) std::cout << "--> " << em_barrel[i0].read();
+    }
+    std::cout << std::endl;
 
+    std::cout << "Layer  13";
+    for(int i0 = 0; i0 < N_LAYER_52; i0++) { 
+      std::cout << " " << layer54_out[i0].empty();
+    }
+    std::cout << std::endl;
+    std::cout << "----> Done " << std::endl;
+    
+  }
   fout.close();
   std::cout << "INFO: Saved inference results to file: " << RESULTS_LOG << std::endl;
 

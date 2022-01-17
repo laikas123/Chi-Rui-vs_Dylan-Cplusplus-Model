@@ -6,7 +6,7 @@ array set opt {
   csim       1
   synth      1
   cosim      1
-  validation 1
+  validation 0
   export     0
   vsynth     0
 }
@@ -65,7 +65,6 @@ if {$opt(reset)} {
   open_solution "solution1"
 }
 catch {config_array_partition -maximum_size 4096}
-config_compile -name_max_length 60
 set_part {xcvu9p-flgb2104-2-i}
 create_clock -period 5 -name default
 
@@ -93,8 +92,6 @@ if {$opt(cosim)} {
   set time_start [clock clicks -milliseconds]
   cosim_design -trace_level all
   set time_end [clock clicks -milliseconds]
-  puts "INFO:"
-  puts [read [open myproject_prj/solution1/sim/report/myproject_cosim.rpt r]]
   report_time "C/RTL SIMULATION" $time_start $time_end
 }
 
@@ -120,15 +117,10 @@ if {$opt(export)} {
 
 if {$opt(vsynth)} {
   puts "***** VIVADO SYNTHESIS *****"
-  if {[file exist myproject_prj/solution1/syn/vhdl]} {
-    set time_start [clock clicks -milliseconds]
-    exec vivado -mode batch -source vivado_synth.tcl >@ stdout
-    set time_end [clock clicks -milliseconds]
-    report_time "VIVADO SYNTHESIS" $time_start $time_end
-  } else {
-    puts "ERROR: Cannot find generated VHDL files. Did you run C synthesis?"
-    exit 1
-  }
+  set time_start [clock clicks -milliseconds]
+  exec vivado -mode batch -source vivado_synth.tcl >@ stdout
+  set time_end [clock clicks -milliseconds]
+  report_time "VIVADO SYNTHESIS" $time_start $time_end
 }
 
 exit
